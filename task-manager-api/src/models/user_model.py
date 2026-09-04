@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 from src.config.database import db
 
@@ -32,10 +31,10 @@ class User(db.Model):
         self.password = generate_password_hash(pwd)
 
     def check_password(self, pwd):
-        if self.password.startswith("pbkdf2:") or self.password.startswith("scrypt:"):
+        # Validação estrita com PBKDF2/scrypt - rejeita qualquer algoritmo fraco ou obsoleto
+        if self.password and (self.password.startswith("pbkdf2:") or self.password.startswith("scrypt:")):
             return check_password_hash(self.password, pwd)
-        # Fallback de compatibilidade para legados
-        return self.password == hashlib.md5(pwd.encode()).hexdigest()
+        return False
 
     def is_admin(self):
         return self.role == 'admin'

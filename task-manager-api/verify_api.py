@@ -27,7 +27,15 @@ assert r.status_code == 201
 cat_id = r.get_json()['id']
 print(f"[OK] [POST /categories] Categoria criada ID {cat_id}")
 
-# 3. Criar Usuário
+# 3. Criar Usuário (garante idempotência em múltiplas execuções)
+with app.app_context():
+    from src.config.database import db
+    from src.models.user_model import User
+    existing_user = User.query.filter_by(email="carlos@empresa.com").first()
+    if existing_user:
+        db.session.delete(existing_user)
+        db.session.commit()
+
 r = client.post('/users', json={
     "name": "Carlos Silva",
     "email": "carlos@empresa.com",

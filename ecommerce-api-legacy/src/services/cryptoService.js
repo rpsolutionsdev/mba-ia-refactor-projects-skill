@@ -9,7 +9,8 @@ class CryptoService {
     }
 
     static verifyPassword(plainPassword, hashedPassword) {
-        return this.hashPassword(plainPassword) === hashedPassword || plainPassword === hashedPassword;
+        if (!plainPassword || !hashedPassword) return false;
+        return this.hashPassword(plainPassword) === hashedPassword;
     }
 }
 

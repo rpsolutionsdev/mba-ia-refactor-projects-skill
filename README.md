@@ -62,8 +62,8 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 * **`analysis-heuristics.md`**: Heurísticas agnósticas de detecção de linguagem, framework, banco de dados e topologia.
 * **`anti-patterns-catalog.md`**: Catálogo estruturado de 14 anti-patterns com severidades (`CRITICAL` a `LOW`) e detecção de APIs obsoletas.
 * **`report-template.md`**: Template padronizado para o relatório da Fase 2.
-* **`mvc-guidelines.md`**: Definição formal das responsabilidades de cada camada (`config`, `models`, `views/routes`, `controllers`, `services`, `middlewares`).
-* **`refactoring-playbook.md`**: 8 padrões de transformação com exemplos práticos de código Antes / Depois.
+* **`mvc-guidelines.md`**: Definição formal das responsabilidades de cada camada (`config`, `models`, `views/routes`, `controllers`, `services`, `middlewares`, limpeza física de código legado e política de hashing seguro).
+* **`refactoring-playbook.md`**: 9 padrões de transformação com exemplos práticos de código Antes / Depois (incluindo hashing estrito sem fallbacks e remoção de código legado substituído).
 
 ### 🎯 Agnosticismo de Tecnologia
 * **Inspeção Dinâmica de Manifestos**: Identifica dependências e runtimes sem premissas fixas.
@@ -73,7 +73,8 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 ### ⚠️ Desafios Encontrados & Soluções
 * **Contratos de API Legados**: Garantida 100% de compatibilidade nos schemas de request/response após refatoração.
 * **Integridade Referencial**: Implementação de `PRAGMA foreign_keys = ON` e exclusão em cascata transacional no Node.js.
-* **Proteção de Credenciais**: Substituição de plaintext e MD5 por hashes com PBKDF2/scrypt e SHA-256 com salt.
+* **Proteção de Credenciais e Hashing Estrito**: Substituição de plaintext e MD5 por hashes com PBKDF2/scrypt com salt, eliminando categoricamente qualquer fallback para hashes inseguros.
+* **Purga de Artefatos Legados**: Remoção física e integral de todos os arquivos e pastas substituídos, impedindo que vulnerabilidades auditadas residam paralelamente no repositório.
 
 ---
 
@@ -93,9 +94,9 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 
 | Projeto | Estrutura Antes (Legada) | Estrutura Depois (MVC Refatorada) |
 | :--- | :--- | :--- |
-| **`code-smells-project`** | Monolítica em 4 arquivos (`app.py`, `models.py`, `controllers.py`, `database.py`) com SQL Injection e God File. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/middlewares/`, `app.py` com queries parametrizadas. |
-| **`ecommerce-api-legacy`** | `AppManager.js` único com DDL, rotas, pagamentos e callback hell. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/`, `src/middlewares/` com async/await. |
-| **`task-manager-api`** | Parcialmente dividida mas com Fat Routes, MD5 e vazamento de senhas. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/` com timezone-aware e PBKDF2. |
+| **`code-smells-project`** | Monolítica em 4 arquivos (`app.py`, `models.py`, `controllers.py`, `database.py`) com SQL Injection e God File. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/middlewares/`, `app.py` com queries parametrizadas e arquivos legados purgados. |
+| **`ecommerce-api-legacy`** | `AppManager.js` único com DDL, rotas, pagamentos e callback hell. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/`, `src/middlewares/` com async/await e `AppManager.js`/`utils.js` removidos. |
+| **`task-manager-api`** | Parcialmente dividida mas com Fat Routes, MD5 e vazamento de senhas. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/` com timezone-aware, PBKDF2 estrito e pastas legadas deletadas. |
 
 ---
 
@@ -117,6 +118,8 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
   - [x] Configuração centralizada via variáveis de ambiente
   - [x] Models parametrizados, controllers finos e rotas desacopladas
   - [x] Error handling global e centralizado
+  - [x] Exclusão física definitiva de arquivos e pastas legadas substituídas
+  - [x] Zero fallbacks/caminhos alternativos para senhas em texto puro ou algoritmos fracos (MD5)
   - [x] Aplicações inicializam sem erros e todos os endpoints respondem com sucesso
 
 ---

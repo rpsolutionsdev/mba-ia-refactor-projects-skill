@@ -49,13 +49,13 @@ class UsuarioModel:
         if not usuario:
             return None
         
-        # Suporta tanto hash moderno quanto fallback seguro se migrado
+        # Validação estrita de hash criptográfico sem fallback para texto puro ou cifras fracas
         hash_armazenado = usuario.get("senha", "")
         senha_valida = False
-        if hash_armazenado.startswith("pbkdf2:") or hash_armazenado.startswith("scrypt:"):
+        if hash_armazenado and (hash_armazenado.startswith("pbkdf2:") or hash_armazenado.startswith("scrypt:")):
             senha_valida = check_password_hash(hash_armazenado, senha)
         else:
-            senha_valida = (hash_armazenado == senha)
+            senha_valida = False
 
         if senha_valida:
             return {

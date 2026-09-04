@@ -155,20 +155,20 @@ class User(db.Model):
         }
 ```
 
-### ✅ Depois (Hash Seguro com Salt e Proteção de Dados Sensíveis)
+### ✅ Depois (Hash Seguro com Salt e Proteção Estrita sem Fallbacks)
 ```python
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(db.Model):
     def set_password(self, pwd):
+        # Gera hash seguro com salt automático (PBKDF2/scrypt)
         self.password = generate_password_hash(pwd)
 
     def check_password(self, pwd):
-        # Suporta migração progressiva se necessário
-        if self.password.startswith("pbkdf2:") or self.password.startswith("scrypt:"):
+        # Validação estrita: NUNCA manter caminho alternativo/fallback para MD5, SHA1 ou plaintext
+        if self.password and (self.password.startswith("pbkdf2:") or self.password.startswith("scrypt:")):
             return check_password_hash(self.password, pwd)
-        import hashlib
-        return self.password == hashlib.md5(pwd.encode()).hexdigest()
+        return False  # Rejeita imediatamente hashes inseguros ou formatos obsoletos
 
     def to_dict(self):
         return {
@@ -177,9 +177,12 @@ class User(db.Model):
             'email': self.email,
             'role': self.role,
             'active': self.active
-            # NUNCA retornar a senha/hash!
+            # NUNCA retornar a senha/hash no payload da API!
         }
 ```
+
+> [!CRITICAL]
+> **Proibição Absoluta de Caminho Alternativo para Hashes Inseguros**: É inaceitável manter retrocompatibilidade com MD5, SHA1 sem salt, base64 ou plaintext (ex: `return self.password == hashlib.md5(pwd).hexdigest()` ou `|| plainPassword === hashedPassword`). Se uma credencial no banco for insegura, a autenticação DEVE falhar.
 
 ---
 
@@ -267,3 +270,42 @@ except Exception as e:
     logger.error(f"Unexpected error: {e}", exc_info=True)
     return jsonify({"error": "Internal server error"}), 500
 ```
+
+---
+
+## 🛠️ Padrão 9: Remoção Obrigatória e Purga de Código Legado Substituído
+
+### ❌ Antes (Coexistência Indevida de Código Legado e Refatorado)
+```
+projeto/
+├── app.py                      # Delegando para src/
+├── models.py                   # Legado com SQL Injection e MD5 ainda vivo no repositório!
+├── controllers.py              # Legado com segredos hardcoded ainda presente!
+├── database.py                 # Conexão legada obsoleta
+├── AppManager.js               # God Class com console.log de cartão de crédito ativo
+├── src/
+│   ├── utils.js                # Arquivo legado com pk_live_ e badCrypto não deletado!
+│   ├── config/
+│   ├── models/
+│   └── controllers/
+```
+*Impacto Crítico*: Os apontamentos `CRITICAL` e `HIGH` identificados na auditoria (Fase 2) continuam existindo fisicamente no repositório nas linhas e arquivos originais, expondo segredos e código vulnerável.
+
+### ✅ Depois (Repositório Limpo com Exclusão dos Arquivos Substituídos)
+```
+projeto/
+├── app.py                      # Ponto de entrada / Composition Root limpo (<50 linhas)
+└── src/                        # 100% da lógica e persistência concentrada aqui
+    ├── config/                 # Configurações limpas via variáveis de ambiente
+    ├── models/                 # Modelos seguros e parametrizados
+    ├── routes/                 # Rotas desacopladas
+    ├── controllers/            # Controllers orquestradores
+    ├── services/               # Regras de negócio isoladas
+    └── middlewares/            # Tratamento centralizado de erros
+```
+
+*Regras Mandatórias de Execução*:
+1. **Deleção Física Obrigatória**: Todo arquivo ou diretório que foi substituído pela nova estrutura em `src/` (ex: `AppManager.js`, `src/utils.js`, `models.py`, `controllers.py`, `database.py` antigo, pastas legadas `models/`, `routes/`, `services/`) **DEVE ser permanentemente deletado**.
+2. **Auditoria de Resíduos**: Após a Fase 3, verificar explicitamente se os arquivos e números de linha citados no relatório da Fase 2 deixaram de existir. Não pode haver duplicidade ou arquivos fantasmas no repositório.
+3. **Entrypoints Limpos**: Somente manter arquivos na raiz que atuem como entrypoints delegando para `src/` (como `app.py` ou `package.json`).
+

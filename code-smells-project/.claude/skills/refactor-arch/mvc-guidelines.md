@@ -67,3 +67,11 @@ src/
 ### 7. `app.*` (Composition Root)
 * **Responsabilidade**: Ponto de entrada da aplicação. Instancia o servidor web, aplica middlewares globais, registra as rotas/blueprints e inicializa a escuta de portas.
 * **Regra**: Conter menos de 50 linhas, atuando apenas como orquestrador de inicialização.
+
+### 8. Limpeza Arquitetural & Não-Coexistência de Código Legado
+* **Responsabilidade**: Extirpar completamente os artefatos legados após a migração para a nova arquitetura MVC em `src/`.
+* **Regra**: Todo arquivo ou diretório legado que foi decomposto ou substituído (God Classes como `AppManager.js`, scripts na raiz como `models.py`, `controllers.py`, `database.py`, utilitários vulneráveis como `utils.js`, ou diretórios legados `models/`, `routes/`, `services/`) **deve ser fisicamente removido do repositório**. É terminantemente proibido deixar arquivos legados coexistindo em paralelo com a pasta `src/`. As vulnerabilidades auditadas na Fase 2 devem deixar de existir em qualquer arquivo do projeto.
+
+### 9. Criptografia Estrita & Proibição Absoluta de Fallbacks Inseguros
+* **Responsabilidade**: Garantir proteção inviolável de credenciais e dados sensíveis.
+* **Regra**: O armazenamento e validação de senhas devem utilizar exclusivamente algoritmos criptográficos robustos de derivação de chave com salt único (PBKDF2, scrypt, Argon2, bcrypt). **É terminantemente proibido implementar ou manter caminhos alternativos (fallbacks) para algoritmos inseguros ou obsoletos** (como `hashlib.md5(...)`, `sha1` sem salt, ou validações `|| plainPassword === hashedPassword`). Se a senha armazenada for inválida ou estiver em formato inseguro, a autenticação DEVE falhar imediatamente.

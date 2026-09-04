@@ -115,19 +115,27 @@ DB tables:     <Tabelas identificadas>
      - `src/controllers/`: Orquestração de requisições, delegação de regras e respostas estruturadas.
      - `src/services/`: Regras de negócio complexas, integrações externas (e-mail, pagamento) e cálculos.
      - `src/middlewares/`: Tratamento centralizado de erros e validação de payloads.
-     - `app.py` / `src/app.js`: *Composition Root* limpo que inicializa o servidor.
-2. **Eliminação dos Anti-patterns**:
-   - Corrija 100% dos achados identificados na Fase 2.
-   - Substitua APIs obsoletas pelo equivalente moderno.
-   - Aplique hashing seguro com salt para senhas e nunca exponha hashes em respostas de API.
-3. **Validação de Funcionamento**:
+     - `app.py` / `src/app.js`: *Composition Root* limpo que inicializa o servidor (<50 linhas).
+
+2. **Remoção Obrigatória dos Arquivos Legados Substituídos**:
+   - **Exclua permanentemente do repositório** todos os arquivos e pastas legadas que foram decompostos ou substituídos pela nova arquitetura MVC (ex: `models.py`, `controllers.py`, `database.py` antigo, `AppManager.js`, `src/utils.js`, e diretórios legados `models/`, `routes/`, `services/`, `utils/`).
+   - Garanta que nenhuma vulnerabilidade apontada no relatório da Fase 2 (chave `pk_live_`, `badCrypto`, logs com cartão de crédito, SQL injection, senhas em plaintext, MD5) continue residindo no repositório em arquivos legados residuais.
+
+3. **Eliminação de Anti-patterns e Proibição de Fallbacks Inseguros**:
+   - Resolva 100% dos achados identificados no relatório da Fase 2.
+   - Aplique hashing criptográfico moderno com salt único (PBKDF2, scrypt, Argon2, bcrypt) para senhas.
+   - **Tolerância zero a caminhos alternativos para hash inseguro**: É expressamente proibido manter suporte ou fallback para MD5, SHA1 sem salt, base64 ou texto puro (ex: proibir `hashlib.md5(...)` em fallback de `check_password` ou `|| plainPassword === hashedPassword`). Se uma senha for insegura, a autenticação deve falhar.
+   - Substitua APIs obsoletas pelo equivalente moderno (ex: `datetime.now(timezone.utc)` no lugar de `datetime.utcnow()`).
+
+4. **Validação de Funcionamento e Auditoria de Resíduos**:
    - Inicie a aplicação no ambiente de desenvolvimento.
    - Teste todos os endpoints e fluxos principais (smoke testing / contract tests).
-   - Verifique que:
+   - Verifique rigorosamente que:
      - A aplicação inicializa sem erros.
      - Todos os contratos de API legados continuam respondendo com status e dados esperados.
-     - Nenhum anti-pattern residual permanece.
-4. **Saída Obrigatória**:
+     - Nenhum arquivo legado ou vulnerabilidade auditada permanece no repositório.
+
+5. **Saída Obrigatória**:
    - Exiba a nova árvore de diretórios e o checklist de validação aprovado:
 
 ```
@@ -135,11 +143,13 @@ DB tables:     <Tabelas identificadas>
 PHASE 3: REFACTORING COMPLETE
 ================================
 ## New Project Structure
-<Árvore do projeto refatorado>
+<Árvore do projeto refatorado limpo>
 
 ## Validation
   ✓ Application boots without errors
   ✓ All endpoints respond correctly
-  ✓ Zero anti-patterns remaining
+  ✓ Legacy replaced files purged from repository
+  ✓ Zero alternative paths / fallbacks for insecure hashes
+  ✓ All Phase 2 audit findings fully resolved
 ================================
 ```

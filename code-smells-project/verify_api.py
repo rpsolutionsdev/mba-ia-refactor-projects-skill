@@ -50,15 +50,18 @@ novo_produto_id = r.get_json()['dados']['id']
 print(f"[OK] [POST /produtos] OK - Criado produto ID {novo_produto_id}")
 
 # 6. Login
-r = client.post('/login', json={"email": "admin@loja.com", "senha": "admin123"})
-assert r.status_code == 200
-assert r.get_json()['sucesso'] is True
+r_login = client.post('/login', json={"email": "admin@loja.com", "senha": "admin123"})
+assert r_login.status_code == 200
+login_data = r_login.get_json()
+assert login_data['sucesso'] is True
+user_id = login_data['dados']['id']
 print("[OK] [POST /login] OK - Autenticacao com senha hash validada com sucesso")
 
 # 7. Criar pedido
+first_product_id = produtos[0]['id']
 r = client.post('/pedidos', json={
-    "usuario_id": 1,
-    "itens": [{"produto_id": 1, "quantidade": 1}]
+    "usuario_id": user_id,
+    "itens": [{"produto_id": first_product_id, "quantidade": 1}]
 })
 assert r.status_code == 201
 print("[OK] [POST /pedidos] OK - Pedido criado com calculo correto")
@@ -68,5 +71,24 @@ r = client.get('/relatorios/vendas')
 assert r.status_code == 200
 assert "faturamento_bruto" in r.get_json()['dados']
 print("[OK] [GET /relatorios/vendas] OK - Relatorio gerado com sucesso")
+
+# 9. Verificacao de Seguranca: Endpoint perigoso /admin/query deve estar REMOVIDO
+r = client.post('/admin/query', json={"sql": "SELECT 1"})
+assert r.status_code == 404, f"/admin/query deveria retornar 404, mas retornou {r.status_code}"
+print("[OK] [POST /admin/query] OK - Endpoint de execucao arbitraria de SQL removido (404 Not Found)")
+
+# 10. Verificacao de Seguranca: /admin/reset-db DEVE exigir autenticacao
+r = client.post('/admin/reset-db')
+assert r.status_code == 401, f"/admin/reset-db sem auth deveria retornar 401, retornou {r.status_code}"
+r_invalid = client.post('/admin/reset-db', headers={"X-Admin-Token": "token-invalido-123"})
+assert r_invalid.status_code == 401
+print("[OK] [POST /admin/reset-db] OK - Acesso nao autenticado devidamente rejeitado (401 Unauthorized)")
+
+# 11. /admin/reset-db com token admin valido
+from src.config.settings import settings
+r_auth = client.post('/admin/reset-db', headers={"X-Admin-Token": settings.ADMIN_TOKEN})
+assert r_auth.status_code == 200
+assert r_auth.get_json()['sucesso'] is True
+print("[OK] [POST /admin/reset-db] OK - Reset com X-Admin-Token autorizado executado com sucesso (200 OK)")
 
 print("\nTODOS OS TESTES DO PROJETO 1 PASSARAM COM SUCESSO!")

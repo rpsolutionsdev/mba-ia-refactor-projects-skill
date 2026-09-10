@@ -121,21 +121,27 @@ DB tables:     <Tabelas identificadas>
    - **Exclua permanentemente do repositório** todos os arquivos e pastas legadas que foram decompostos ou substituídos pela nova arquitetura MVC (ex: `models.py`, `controllers.py`, `database.py` antigo, `AppManager.js`, `src/utils.js`, e diretórios legados `models/`, `routes/`, `services/`, `utils/`).
    - Garanta que nenhuma vulnerabilidade apontada no relatório da Fase 2 (chave `pk_live_`, `badCrypto`, logs com cartão de crédito, SQL injection, senhas em plaintext, MD5) continue residindo no repositório em arquivos legados residuais.
 
-3. **Eliminação de Anti-patterns e Proibição de Fallbacks Inseguros**:
+3. **Remoção Mandatória de Backdoors e Proteção Rigorosa de Endpoints Administrativos**:
+   - **Eliminação Absoluta de Execução Arbitrária de SQL**: Endpoints que recebem comandos ou fragmentos SQL do cliente via HTTP (como `/admin/query` recebendo payload com `{ "sql": ... }`) são **backdoors gravíssimos** de controle total do banco. Tais rotas e métodos DEVEM ser permanentemente removidos da aplicação e dos roteadores. Sob nenhuma hipótese mantenha execução de SQL vindo do corpo da requisição.
+   - **Proteção Estrita de Endpoints Administrativos**: Rotas administrativas com ações destrutivas ou de manutenção (como `/admin/reset-db`, wipe de tabelas, exportações privilegiadas) NUNCA podem ser mantidas expostas sem autenticação. Se mantidas para desenvolvimento/testes, DEVEM exigir obrigatoriamente token ou credencial administrativa (ex: header `X-Admin-Token` confrontado com variável de ambiente segura), retornando imediatamente status HTTP 401 Unauthorized para qualquer requisição não autorizada.
+   - **Auditoria de Resolução 100% dos Findings CRITICAL**: Todos os apontamentos classificados como CRITICAL no relatório de auditoria da Fase 2 (inclusive endpoints perigosos e não autenticados) DEVEM estar totalmente resolvidos no código da Fase 3. Deixar a rota desprotegida ou manter a execução de SQL arbitrário é inaceitável.
+
+4. **Eliminação de Anti-patterns e Proibição de Fallbacks Inseguros**:
    - Resolva 100% dos achados identificados no relatório da Fase 2.
    - Aplique hashing criptográfico moderno com salt único (PBKDF2, scrypt, Argon2, bcrypt) para senhas.
    - **Tolerância zero a caminhos alternativos para hash inseguro**: É expressamente proibido manter suporte ou fallback para MD5, SHA1 sem salt, base64 ou texto puro (ex: proibir `hashlib.md5(...)` em fallback de `check_password` ou `|| plainPassword === hashedPassword`). Se uma senha for insegura, a autenticação deve falhar.
    - Substitua APIs obsoletas pelo equivalente moderno (ex: `datetime.now(timezone.utc)` no lugar de `datetime.utcnow()`).
 
-4. **Validação de Funcionamento e Auditoria de Resíduos**:
+5. **Validação de Funcionamento e Auditoria de Resíduos**:
    - Inicie a aplicação no ambiente de desenvolvimento.
    - Teste todos os endpoints e fluxos principais (smoke testing / contract tests).
    - Verifique rigorosamente que:
      - A aplicação inicializa sem erros.
      - Todos os contratos de API legados continuam respondendo com status e dados esperados.
      - Nenhum arquivo legado ou vulnerabilidade auditada permanece no repositório.
+     - Endpoints de execução SQL arbitrária foram expurgados e rotas administrativas exigem autenticação.
 
-5. **Saída Obrigatória**:
+6. **Saída Obrigatória**:
    - Exiba a nova árvore de diretórios e o checklist de validação aprovado:
 
 ```
@@ -150,6 +156,8 @@ PHASE 3: REFACTORING COMPLETE
   ✓ All endpoints respond correctly
   ✓ Legacy replaced files purged from repository
   ✓ Zero alternative paths / fallbacks for insecure hashes
+  ✓ Dangerous arbitrary SQL execution endpoints removed
+  ✓ Administrative endpoints strictly protected with authentication or removed
   ✓ All Phase 2 audit findings fully resolved
 ================================
 ```

@@ -75,3 +75,8 @@ src/
 ### 9. Criptografia Estrita & Proibição Absoluta de Fallbacks Inseguros
 * **Responsabilidade**: Garantir proteção inviolável de credenciais e dados sensíveis.
 * **Regra**: O armazenamento e validação de senhas devem utilizar exclusivamente algoritmos criptográficos robustos de derivação de chave com salt único (PBKDF2, scrypt, Argon2, bcrypt). **É terminantemente proibido implementar ou manter caminhos alternativos (fallbacks) para algoritmos inseguros ou obsoletos** (como `hashlib.md5(...)`, `sha1` sem salt, ou validações `|| plainPassword === hashedPassword`). Se a senha armazenada for inválida ou estiver em formato inseguro, a autenticação DEVE falhar imediatamente.
+
+### 10. Proteção e Saneamento de Endpoints Administrativos & Proibição de Backdoors
+* **Responsabilidade**: Garantir que operações administrativas, destrutivas ou de manutenção sejam rigorosamente restritas a administradores autorizados e eliminar qualquer backdoor de execução remota de código ou queries.
+* **Regra**: Endpoints que aceitam e executam strings SQL ou comandos arbitrários fornecidos pelo cliente (como `/admin/query` ou runners de SQL dinâmico) são **terminantemente proibidos** e devem ser completamente removidos do código e das rotas. Endpoints administrativos legítimos (como `/admin/reset-db` para manutenção/testes) exigem autenticação obrigatória via tokens ou credenciais administrativas (ex: header `X-Admin-Token`), com rejeição imediata (`401 Unauthorized` ou `403 Forbidden`) para qualquer requisição que não comprove autorização.
+

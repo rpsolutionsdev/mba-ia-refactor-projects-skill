@@ -6,6 +6,7 @@ class Settings:
     DB_PATH = os.getenv("DB_PATH", "loja.db")
     PORT = int(os.getenv("PORT", 5000))
     HOST = os.getenv("HOST", "0.0.0.0")
+    ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "dev-admin-secret-token-123")
 
     # Regras de Negócio / Constantes
     DISCOUNT_TIER_1_THRESHOLD = 10000.0

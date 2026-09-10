@@ -309,3 +309,69 @@ projeto/
 2. **Auditoria de Resíduos**: Após a Fase 3, verificar explicitamente se os arquivos e números de linha citados no relatório da Fase 2 deixaram de existir. Não pode haver duplicidade ou arquivos fantasmas no repositório.
 3. **Entrypoints Limpos**: Somente manter arquivos na raiz que atuem como entrypoints delegando para `src/` (como `app.py` ou `package.json`).
 
+---
+
+## 🛠️ Padrão 10: Eliminação de Backdoors de Execução SQL Arbitrária e Proteção Estrita de Endpoints Administrativos
+
+### ❌ Antes (Backdoor de SQL Arbitrário e Reset Público sem Autenticação)
+```python
+# app.py / controllers.py (VULNERABILIDADE CRÍTICA)
+@app.route('/admin/reset-db', methods=['POST'])
+def reset_db():
+    # Qualquer usuário anônimo na internet pode apagar todo o banco de dados!
+    cursor.execute("DELETE FROM usuarios; DELETE FROM produtos; ...")
+    return jsonify({"mensagem": "Banco resetado"}), 200
+
+@app.route('/admin/query', methods=['POST'])
+def run_query():
+    # BACKDOOR GRAVÍSSIMO: Execução remota de SQL arbitrário enviado no payload HTTP!
+    query = request.json.get("sql")
+    cursor.execute(query) # Permite DROP TABLE, leitura de senhas, exfiltração total!
+    return jsonify({"resultado": cursor.fetchall()}), 200
+```
+*Impacto*: Qualquer atacante possui um console SQL remoto irrestrito e capacidade de destruição total do banco sem precisar se autenticar.
+
+### ✅ Depois (Backdoor Removido e Rota Administrativa Rigorosamente Autenticada)
+```python
+# 1. Rota /admin/query e método de execução de SQL arbitrário são COMPLETAMENTE REMOVIDOS do roteamento e dos controllers.
+
+# 2. Rota administrativa necessária protegida por verificação de token/credencial administrativa:
+# src/controllers/system_controller.py
+from flask import request, jsonify
+from src.config.settings import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SystemController:
+    @staticmethod
+    def reset_database():
+        # Validação obrigatória de token administrativo no header
+        token = request.headers.get("X-Admin-Token")
+        if not token or token != settings.ADMIN_TOKEN:
+            logger.warning("Acesso negado a endpoint administrativo /admin/reset-db: token ausente ou inválido")
+            return jsonify({
+                "erro": "Acesso não autorizado: token de administrador ausente ou inválido",
+                "sucesso": False
+            }), 401
+
+        # Ação administrativa segura executada apenas após autenticação confirmada
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM itens_pedido")
+        cursor.execute("DELETE FROM pedidos")
+        cursor.execute("DELETE FROM produtos")
+        cursor.execute("DELETE FROM usuarios")
+        conn.commit()
+        conn.close()
+        init_db()
+        logger.warning("Banco de dados resetado com sucesso por administrador autorizado")
+        return jsonify({"mensagem": "Banco de dados resetado com sucesso", "sucesso": True}), 200
+```
+
+*Regras Mandatórias de Execução*:
+1. **Remoção Absoluta de Backdoors**: É expressamente proibido manter endpoints como `/admin/query` ou rotas que recebam comandos SQL do cliente. Eles devem ser eliminados sumariamente na Fase 3.
+2. **Autenticação Obrigatória em Rotas `/admin/*`**: Nenhuma rota sob o namespace administrativo pode responder `200 OK` para requisições anônimas. Requisições sem credenciais administrativas (`X-Admin-Token` ou sessão/JWT de admin) DEVEM responder `401 Unauthorized` ou `403 Forbidden`.
+3. **Auditoria de Resolução dos Achados CRITICAL**: Verificar se todos os endpoints administrativos identificados no relatório de auditoria foram devidamente protegidos ou excluídos.
+
+

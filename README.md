@@ -63,7 +63,7 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 * **`anti-patterns-catalog.md`**: Catálogo estruturado de 14 anti-patterns com severidades (`CRITICAL` a `LOW`) e detecção de APIs obsoletas.
 * **`report-template.md`**: Template padronizado para o relatório da Fase 2.
 * **`mvc-guidelines.md`**: Definição formal das responsabilidades de cada camada (`config`, `models`, `views/routes`, `controllers`, `services`, `middlewares`, limpeza física de código legado e política de hashing seguro).
-* **`refactoring-playbook.md`**: 9 padrões de transformação com exemplos práticos de código Antes / Depois (incluindo hashing estrito sem fallbacks e remoção de código legado substituído).
+* **`refactoring-playbook.md`**: 10 padrões de transformação com exemplos práticos de código Antes / Depois (incluindo hashing estrito sem fallbacks, remoção de código legado substituído, e eliminação de backdoors de SQL arbitrário com proteção de endpoints administrativos).
 
 ### 🎯 Agnosticismo de Tecnologia
 * **Inspeção Dinâmica de Manifestos**: Identifica dependências e runtimes sem premissas fixas.
@@ -75,6 +75,7 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 * **Integridade Referencial**: Implementação de `PRAGMA foreign_keys = ON` e exclusão em cascata transacional no Node.js.
 * **Proteção de Credenciais e Hashing Estrito**: Substituição de plaintext e MD5 por hashes com PBKDF2/scrypt com salt, eliminando categoricamente qualquer fallback para hashes inseguros.
 * **Purga de Artefatos Legados**: Remoção física e integral de todos os arquivos e pastas substituídos, impedindo que vulnerabilidades auditadas residam paralelamente no repositório.
+* **Eliminação de Backdoors e Proteção Administrativa**: Remoção completa do endpoint `/admin/query` (eliminação do backdoor de execução remota de SQL arbitrário) e proteção estrita de `/admin/reset-db` exigindo token administrativo (`X-Admin-Token`), com rejeição imediata (401 Unauthorized) para requisições anônimas.
 
 ---
 
@@ -94,7 +95,7 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 
 | Projeto | Estrutura Antes (Legada) | Estrutura Depois (MVC Refatorada) |
 | :--- | :--- | :--- |
-| **`code-smells-project`** | Monolítica em 4 arquivos (`app.py`, `models.py`, `controllers.py`, `database.py`) com SQL Injection e God File. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/middlewares/`, `app.py` com queries parametrizadas e arquivos legados purgados. |
+| **`code-smells-project`** | Monolítica em 4 arquivos (`app.py`, `models.py`, `controllers.py`, `database.py`) com SQL Injection e God File. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/middlewares/`, `app.py` com queries parametrizadas, backdoors removidos e rotas admin protegidas. |
 | **`ecommerce-api-legacy`** | `AppManager.js` único com DDL, rotas, pagamentos e callback hell. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/`, `src/middlewares/` com async/await e `AppManager.js`/`utils.js` removidos. |
 | **`task-manager-api`** | Parcialmente dividida mas com Fat Routes, MD5 e vazamento de senhas. | `src/config/`, `src/models/`, `src/routes/`, `src/controllers/`, `src/services/` com timezone-aware, PBKDF2 estrito e pastas legadas deletadas. |
 
@@ -120,6 +121,8 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
   - [x] Error handling global e centralizado
   - [x] Exclusão física definitiva de arquivos e pastas legadas substituídas
   - [x] Zero fallbacks/caminhos alternativos para senhas em texto puro ou algoritmos fracos (MD5)
+  - [x] Eliminação definitiva de backdoors de execução arbitrária de SQL (`/admin/query` removido)
+  - [x] Proteção obrigatória de rotas administrativas (`/admin/reset-db` exige `X-Admin-Token`)
   - [x] Aplicações inicializam sem erros e todos os endpoints respondem com sucesso
 
 ---
@@ -133,9 +136,12 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
   [OK] [GET /produtos] OK - 10 produtos retornados
   [OK] [GET /produtos/busca] OK - 3 itens encontrados
   [OK] [POST /produtos] OK - Criado produto ID 11
-  [OK] [POST /login] OK - Autenticação com senha hash validada
-  [OK] [POST /pedidos] OK - Pedido criado com cálculo correto
-  [OK] [GET /relatorios/vendas] OK - Relatório gerado com sucesso
+  [OK] [POST /login] OK - Autenticacao com senha hash validada com sucesso
+  [OK] [POST /pedidos] OK - Pedido criado com calculo correto
+  [OK] [GET /relatorios/vendas] OK - Relatorio gerado com sucesso
+  [OK] [POST /admin/query] OK - Endpoint de execucao arbitraria de SQL removido (404 Not Found)
+  [OK] [POST /admin/reset-db] OK - Acesso nao autenticado devidamente rejeitado (401 Unauthorized)
+  [OK] [POST /admin/reset-db] OK - Reset com X-Admin-Token autorizado executado com sucesso (200 OK)
   ```
 
 * **Projeto 2 (`ecommerce-api-legacy`)**:

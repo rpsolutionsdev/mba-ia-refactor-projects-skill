@@ -56,38 +56,27 @@ class SystemController:
 
     @staticmethod
     def reset_database():
+        token = request.headers.get("X-Admin-Token")
+        if not token or token != settings.ADMIN_TOKEN:
+            logger.warning("Tentativa de acesso não autorizado a /admin/reset-db")
+            return jsonify({
+                "erro": "Acesso não autorizado: token de administrador ausente ou inválido",
+                "sucesso": False
+            }), 401
+
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM itens_pedido")
         cursor.execute("DELETE FROM pedidos")
         cursor.execute("DELETE FROM produtos")
         cursor.execute("DELETE FROM usuarios")
+        try:
+            cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('itens_pedido', 'pedidos', 'produtos', 'usuarios')")
+        except Exception:
+            pass
         conn.commit()
         conn.close()
         init_db()
-        logger.warning("Banco de dados resetado com sucesso")
-        return jsonify({"mensagem": "Banco de dados resetado", "sucesso": True}), 200
+        logger.warning("Banco de dados resetado com sucesso por administrador autenticado")
+        return jsonify({"mensagem": "Banco de dados resetado com sucesso", "sucesso": True}), 200
 
-    @staticmethod
-    def executar_query():
-        dados = request.get_json() or {}
-        query = dados.get("sql", "").strip()
-        if not query:
-            return jsonify({"erro": "Query não informada"}), 400
-
-        conn = get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(query)
-            if query.upper().startswith("SELECT"):
-                rows = cursor.fetchall()
-                result = [dict(row) for row in rows]
-                conn.close()
-                return jsonify({"dados": result, "sucesso": True}), 200
-            else:
-                conn.commit()
-                conn.close()
-                return jsonify({"mensagem": "Query executada", "sucesso": True}), 200
-        except Exception as e:
-            conn.close()
-            return jsonify({"erro": str(e)}), 500

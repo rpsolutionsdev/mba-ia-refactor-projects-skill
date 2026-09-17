@@ -138,7 +138,7 @@ async function getUserDetails(req, res, next) {
 
 ## 🛠️ Padrão 5: Hashing Seguro de Senhas e Omissão em Respostas
 
-### ❌ Antes (MD5 Fraco e Exposição de Senha na API)
+### ❌ Antes (Python / MD5 Fraco e Exposição de Senha na API)
 ```python
 import hashlib
 
@@ -155,7 +155,7 @@ class User(db.Model):
         }
 ```
 
-### ✅ Depois (Hash Seguro com Salt e Proteção Estrita sem Fallbacks)
+### ✅ Depois (Python / Hash Seguro com Salt e Proteção Estrita sem Fallbacks)
 ```python
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -181,8 +181,74 @@ class User(db.Model):
         }
 ```
 
+### ❌ Antes (Node.js / Bad Crypto ou HMAC com Salt Fixo Compartilhado)
+```javascript
+// utils.js ou cryptoService.js (VULNERABILIDADE CRÍTICA)
+// 1. Criptografia falsa via fatiamento de base64 sem salt
+function badCrypto(pwd) {
+    return Buffer.from(pwd).toString('base64').substring(0, 2);
+}
+
+// 2. HMAC com salt fixo/estático compartilhado entre todos os usuários
+const crypto = require('crypto');
+function hashPassword(pwd) {
+    const fixedSalt = "fc_salt_secure_2026"; // INSEGURO: salt fixo global permite rainbow tables!
+    return crypto.createHmac('sha256', fixedSalt).update(pwd).digest('hex');
+}
+```
+
+### ✅ Depois (Node.js / Hashing Seguro com `scryptSync` e Salt Único por Usuário)
+```javascript
+// src/services/cryptoService.js (SEGURO: scrypt nativo com salt exclusivo)
+const crypto = require('crypto');
+
+class CryptoService {
+    /**
+     * Gera hash criptograficamente seguro utilizando scrypt nativo do Node.js
+     * com salt aleatório exclusivo (16 bytes / 32 hex) gerado individualmente por usuário.
+     * Formato retornado: `scrypt:<salt>:<derivedKey>`
+     */
+    static hashPassword(password) {
+        if (!password) password = "default_password";
+        // 1. Salt criptográfico único e imprevisível por usuário
+        const salt = crypto.randomBytes(16).toString('hex');
+        // 2. Derivação de chave lenta de 64 bytes via scrypt (resistente a GPUs/ASICs)
+        const derivedKey = crypto.scryptSync(password, salt, 64).toString('hex');
+        return `scrypt:${salt}:${derivedKey}`;
+    }
+
+    /**
+     * Validação estrita de senha em tempo constante (timingSafeEqual).
+     * Extrai o salt único armazenado no registro do usuário.
+     * TOLERÂNCIA ZERO para fallbacks inseguros (MD5, base64 ou plaintext).
+     */
+    static verifyPassword(plainPassword, storedHash) {
+        if (!plainPassword || !storedHash) return false;
+
+        const parts = storedHash.split(':');
+        // Exige conformidade estrita com o formato seguro scrypt:<salt>:<derivedKey>
+        if (parts.length !== 3 || parts[0] !== 'scrypt') {
+            return false; // Rejeita imediatamente qualquer formato legado ou adulterado
+        }
+
+        const [, salt, originalKeyHex] = parts;
+        const keyBuffer = Buffer.from(originalKeyHex, 'hex');
+        const derivedKey = crypto.scryptSync(plainPassword, salt, 64);
+
+        if (keyBuffer.length !== derivedKey.length) {
+            return false;
+        }
+
+        // Comparação segura em tempo constante contra timing attacks
+        return crypto.timingSafeEqual(keyBuffer, derivedKey);
+    }
+}
+
+module.exports = CryptoService;
+```
+
 > [!CRITICAL]
-> **Proibição Absoluta de Caminho Alternativo para Hashes Inseguros**: É inaceitável manter retrocompatibilidade com MD5, SHA1 sem salt, base64 ou plaintext (ex: `return self.password == hashlib.md5(pwd).hexdigest()` ou `|| plainPassword === hashedPassword`). Se uma credencial no banco for insegura, a autenticação DEVE falhar.
+> **Proibição Absoluta de Caminho Alternativo para Hashes Inseguros e Salts Estáticos**: É inaceitável manter retrocompatibilidade com MD5, SHA1 sem salt, base64 ou plaintext (ex: `return self.password == hashlib.md5(pwd).hexdigest()` ou `|| plainPassword === hashedPassword`), ou usar salts fixos compartilhados (como `"fc_salt_secure_2026"`). Cada senha DEVE possuir seu próprio salt criptográfico aleatório gerado no momento do hash. Se uma credencial no banco for insegura, a autenticação DEVE falhar.
 
 ---
 

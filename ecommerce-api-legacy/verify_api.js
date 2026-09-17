@@ -41,6 +41,36 @@ async function runTests() {
     };
 
     try {
+        // 0. Testes Unitários de Hashing Seguro (CryptoService com scryptSync e Salt Único)
+        const CryptoService = require('./src/services/cryptoService');
+        const hash1 = CryptoService.hashPassword("senhaforte123");
+        const hash2 = CryptoService.hashPassword("senhaforte123");
+
+        if (!hash1.startsWith('scrypt:')) {
+            throw new Error(`Hash inválido, deve iniciar com scrypt: : ${hash1}`);
+        }
+        const parts1 = hash1.split(':');
+        const parts2 = hash2.split(':');
+        if (parts1.length !== 3 || parts2.length !== 3) {
+            throw new Error(`Hash deve conter 3 partes (scrypt:salt:key): ${hash1}`);
+        }
+        if (parts1[1] === parts2[1]) {
+            throw new Error(`Falha de segurança: os salts gerados para o mesmo input devem ser diferentes (únicos por usuário/chamada)! Salt1=${parts1[1]}, Salt2=${parts2[1]}`);
+        }
+        if (parts1[1] === "fc_salt_secure_2026" || parts2[1] === "fc_salt_secure_2026") {
+            throw new Error("Falha de segurança: salt fixo estático detectado!");
+        }
+        if (!CryptoService.verifyPassword("senhaforte123", hash1)) {
+            throw new Error("Falha na validação de senha válida com scrypt");
+        }
+        if (CryptoService.verifyPassword("senha_incorreta", hash1)) {
+            throw new Error("Falha: senha incorreta foi aceita!");
+        }
+        if (CryptoService.verifyPassword("senhaforte123", "plaintext") || CryptoService.verifyPassword("senhaforte123", "fc_salt_secure_2026")) {
+            throw new Error("Falha: fallback para texto puro ou formato inseguro aceito!");
+        }
+        console.log(`[OK] [CryptoService] scryptSync com salt único por usuário validado: salt=${parts1[1].substring(0, 8)}... (salt único gerado com sucesso)`);
+
         // 1. Checkout Sucesso
         const res1 = await request('POST', '/api/checkout', {
             usr: "Guilherme",

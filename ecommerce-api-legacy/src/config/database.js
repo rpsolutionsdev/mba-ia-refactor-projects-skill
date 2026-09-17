@@ -16,7 +16,9 @@ class Database {
                 this.db.run("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
 
                 // Seeds
-                this.db.run("INSERT INTO users (name, email, pass) VALUES ('Leonan', 'leonan@fullcycle.com.br', '123')");
+                const CryptoService = require('../services/cryptoService');
+                const initialSeedHash = CryptoService.hashPassword('123');
+                this.db.run("INSERT INTO users (name, email, pass) VALUES ('Leonan', 'leonan@fullcycle.com.br', ?)", [initialSeedHash]);
                 this.db.run("INSERT INTO courses (title, price, active) VALUES ('Clean Architecture', 997.00, 1), ('Docker', 497.00, 1)");
                 this.db.run("INSERT INTO enrollments (user_id, course_id) VALUES (1, 1)");
                 this.db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (1, 997.00, 'PAID')", (err) => {

@@ -26,8 +26,11 @@ Mapeamento prévio dos problemas arquiteturais, falhas de segurança e code smel
 | 🔴 **CRITICAL** | **Endpoints Perigosos sem Autenticação** | `app.py:47-79` | `/admin/query` e `/admin/reset-db` permitem execução SQL arbitrária sem auth. |
 | 🔴 **CRITICAL** | **Senhas em Plaintext** | `models.py:83, 99, 110, 127` | Credenciais armazenadas e validadas sem hash criptográfico. |
 | 🟠 **HIGH** | **God File / Falta de Separação** | `models.py:1-315` | Arquivo único com regras, SQL e formatação de 4 domínios distintos. |
+| 🟠 **HIGH** | **Regras de Negócio nos Controladores** | `controllers.py:24-63, 188-221` | Lógica de checkout e notificações fictícias presas na camada de controle. |
 | 🟡 **MEDIUM** | **Consultas N+1** | `models.py:187-199, 219-231` | Queries em loop para itens e nomes de produtos; degradação severa com escala. |
-| 🟢 **LOW** | **Magic Numbers & Logs com `print`** | `models.py:257-263`, `controllers.py:8, 57` | Regras de desconto com literais soltos e ausência de logger estruturado. |
+| 🟡 **MEDIUM** | **Tratamento Descentralizado de Erros** | `controllers.py:10-12, 60-62, 143, 218` | Blocos try/except repetidos sem padronização de status HTTP e payload de erro. |
+| 🟢 **LOW** | **Magic Numbers em Regras de Desconto** | `models.py:257-263` | Literais mágicos soltos (`10000`, `0.1`) sem constantes semânticas. |
+| 🟢 **LOW** | **Logs com `print()` sem Níveis** | `app.py:56`, `controllers.py:8, 57` | Ausência de logger estruturado para depuração e auditoria. |
 
 ### 📦 Projeto 2: `ecommerce-api-legacy` (Node.js / Express — LMS API com Checkout)
 
@@ -35,9 +38,11 @@ Mapeamento prévio dos problemas arquiteturais, falhas de segurança e code smel
 | :--- | :--- | :--- | :--- |
 | 🔴 **CRITICAL** | **Exposição de Secrets & Gateway Key** | `src/utils.js:1-7`, `src/AppManager.js:45` | Credenciais de banco, SMTP e gateway live no código; log de cartão de crédito no console. |
 | 🔴 **CRITICAL** | **Criptografia Falsa (*Bad Crypto*)** | `src/utils.js:17-23` | Fatias repetidas de base64 sem salt; hashes trivialmente reversíveis. |
-| 🟠 **HIGH** | **God Class (*AppManager*) & Callback Hell** | `src/AppManager.js:4-139` | Classe única acumulando DDL, rotas, pagamentos e até 5 níveis de callbacks. |
+| 🟠 **HIGH** | **God Class (*AppManager*)** | `src/AppManager.js:4-139` | Classe única acumulando DDL, rotas, pagamentos e regras de negócio. |
+| 🟠 **HIGH** | **Callback Hell em Operações Assíncronas** | `src/AppManager.js:37-77, 83-128` | Até 5 níveis de callbacks aninhados do driver sqlite3. |
 | 🟠 **HIGH** | **Estado Global Mutável** | `src/utils.js:9-10`, `src/AppManager.js:59` | `globalCache` e `totalRevenue` em memória; gera race conditions em concorrência. |
 | 🟡 **MEDIUM** | **N+1 Query Pyramid no Relatório** | `src/AppManager.js:83-128` | 4 loops assíncronos aninhados gerando I/O excessivo. |
+| 🟡 **MEDIUM** | **Exclusão sem Cascata (Integridade Quebrada)** | `src/AppManager.js:131-137` | DELETE sem cascade deixa matrículas e pagamentos órfãos no banco. |
 | 🟢 **LOW** | **Nomenclatura Críptica** | `src/AppManager.js:29-33` | Variáveis de 1 caractere (`u`, `e`, `p`, `cid`, `cc`) prejudicando legibilidade. |
 
 ### 📦 Projeto 3: `task-manager-api` (Python / Flask — Task Manager API)
@@ -63,7 +68,7 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 * **`anti-patterns-catalog.md`**: Catálogo estruturado de 14 anti-patterns com severidades (`CRITICAL` a `LOW`) e detecção de APIs obsoletas.
 * **`report-template.md`**: Template padronizado para o relatório da Fase 2.
 * **`mvc-guidelines.md`**: Definição formal das responsabilidades de cada camada (`config`, `models`, `views/routes`, `controllers`, `services`, `middlewares`, limpeza física de código legado e política de hashing seguro).
-* **`refactoring-playbook.md`**: 10 padrões de transformação com exemplos práticos de código Antes / Depois (incluindo hashing estrito sem fallbacks, remoção de código legado substituído, e eliminação de backdoors de SQL arbitrário com proteção de endpoints administrativos).
+* **`refactoring-playbook.md`**: 10 padrões de transformação com exemplos práticos de código Antes / Depois (incluindo hashing seguro para Node.js via `scryptSync` com salt aleatório único por usuário, hashing estrito em Python via PBKDF2 sem fallbacks, remoção de código legado substituído, e eliminação de backdoors de SQL arbitrário com proteção de endpoints administrativos).
 
 ### 🎯 Agnosticismo de Tecnologia
 * **Inspeção Dinâmica de Manifestos**: Identifica dependências e runtimes sem premissas fixas.
@@ -73,7 +78,7 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 ### ⚠️ Desafios Encontrados & Soluções
 * **Contratos de API Legados**: Garantida 100% de compatibilidade nos schemas de request/response após refatoração.
 * **Integridade Referencial**: Implementação de `PRAGMA foreign_keys = ON` e exclusão em cascata transacional no Node.js.
-* **Proteção de Credenciais e Hashing Estrito**: Substituição de plaintext e MD5 por hashes com PBKDF2/scrypt com salt, eliminando categoricamente qualquer fallback para hashes inseguros.
+* **Proteção de Credenciais e Hashing Estrito com Salt Único**: Substituição de plaintext, fatias de base64 e MD5 por hashes padrão de mercado: `crypto.scryptSync` nativo no Node.js com salt aleatório de 16 bytes único por usuário e `timingSafeEqual`, e PBKDF2 no Python, eliminando categoricamente qualquer fallback para hashes inseguros ou salts fixos.
 * **Purga de Artefatos Legados**: Remoção física e integral de todos os arquivos e pastas substituídos, impedindo que vulnerabilidades auditadas residam paralelamente no repositório.
 * **Eliminação de Backdoors e Proteção Administrativa**: Remoção completa do endpoint `/admin/query` (eliminação do backdoor de execução remota de SQL arbitrário) e proteção estrita de `/admin/reset-db` exigindo token administrativo (`X-Admin-Token`), com rejeição imediata (401 Unauthorized) para requisições anônimas.
 
@@ -146,10 +151,11 @@ A Skill foi estruturada modularmente sob `.claude/skills/refactor-arch/`:
 
 * **Projeto 2 (`ecommerce-api-legacy`)**:
   ```
+  [OK] [CryptoService] scryptSync com salt único por usuário validado: salt=7ee581d0... (salt único gerado com sucesso)
   [OK] [POST /api/checkout] Sucesso: enrollment_id=2
   [OK] [POST /api/checkout] Recusado: status 400 correto
   [OK] [GET /api/admin/financial-report] Sucesso: 2 cursos listados
-  [OK] [DELETE /api/users/1] Sucesso: Usuário e matrículas deletados
+  [OK] [DELETE /api/users/1] Sucesso: Usuário e registros associados deletados com sucesso.
   ```
 
 * **Projeto 3 (`task-manager-api`)**:
